@@ -131,11 +131,16 @@ echo "        {">> flash-list.json
 echo "            \"address\": 20480,">> flash-list.json
 echo "            \"bin\": \"config.bin\",">> flash-list.json
 echo "            \"sha256Prefix\": false">> flash-list.json
+echo "        },">> flash-list.json
+echo "        {">> flash-list.json
+echo "            \"address\": 524288,">> flash-list.json
+echo "            \"bin\": \"firmware.bin\",">> flash-list.json
+echo "            \"sha256Prefix\": true">> flash-list.json
 echo "        }">> flash-list.json
 echo "    ]">> flash-list.json
 echo "}">> flash-list.json
 
-zip kboot.kfpkg -9 flash-list.json bootloader_lo.bin bootloader_hi.bin config.bin > /dev/null
+zip kboot.kfpkg -9 flash-list.json bootloader_lo.bin bootloader_hi.bin config.bin firmware.bin > /dev/null
 rm -f flash-list.json
 
 if [ $? -ne 0 ]; then
@@ -159,26 +164,3 @@ rm -f *.txt > /dev/null 2>&1
 rm -f *.json > /dev/null 2>&1
 rm -f *.bak > /dev/null 2>&1
 rm -f Makefile > /dev/null 2>&1
-
-
-echo ""
-echo "--------------------------------------------------------------------"
-echo "To flash the kboot package to K210 run:"
-echo "./ktool.py -p /dev/ttyUSB0 -b 2000000 -t kboot.kfpkg"
-echo ""
-echo "To flash default application run:"
-echo "./ktool.py -p /dev/ttyUSB0 -a 65536 -b 2000000 -t default.bin"
-echo ""
-echo "Default config can run applications from 512K or 2.5M flash address"
-echo "Some applications are provided for testing:"
-echo ""
-echo "To flash MicroPython (FreeRTOS SDK) at 512K, run:"
-echo "./ktool.py -p /dev/ttyUSB0 -a 524288 -b 2000000 -t MicroPython.bin"
-echo "To flash dvp_ov (Standalone SDK) at 2.5M, run:"
-echo "./ktool.py -p /dev/ttyUSB0 -a 2621440 -b 2000000 -t dvp_ov.bin"
-echo "To flash maixpy (Standalone SDK) at 2.5M, run:"
-echo "./ktool.py -p /dev/ttyUSB0 -a 2621440 -b 2000000 -t maixpy.bin"
-echo ""
-echo "If no app is found, default app will be run which blinks the LED(s)."
-echo "--------------------------------------------------------------------"
-echo ""
