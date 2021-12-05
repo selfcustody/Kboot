@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TOOLCHAIN_PATH="${PWD}/../kendryte-toolchain/bin"
+TOOLCHAIN_PATH="/opt/kendryte-toolchain/bin"
 
 # ==== Build BOOTLOADER0 (runs from low SRAM address) ====
 
