@@ -142,6 +142,7 @@ echo "}">> flash-list.json
 
 # Set a fixed timestamp for all files before zipping them and ensure reproducibility
 touch -t 200901031815 flash-list.json bootloader_lo.bin bootloader_hi.bin config.bin firmware.bin
+chmod 0644 flash-list.json bootloader_lo.bin bootloader_hi.bin config.bin firmware.bin
 zip kboot.kfpkg -9 flash-list.json bootloader_lo.bin bootloader_hi.bin config.bin firmware.bin > /dev/null
 rm -f flash-list.json
 
