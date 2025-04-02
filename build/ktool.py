@@ -1354,14 +1354,25 @@ class KTool:
         # ======================================
         # Start the terminil emulator (miniterm)
         # ======================================
-        def open_terminal(reset):
+        def open_terminal(reset, bdr=115200, colors=True, mpyterm=False):
+            if mpyterm == True:
+                try:
+                    from MPyTerm import PyTerm
+                except ImportError:
+                    err = (ERROR_MSG,'MPyTerm cannot be imported ',BASH_TIPS['DEFAULT'])
+                    err = tuple2str(err)
+                    raise Exception(err)
+                trm = PyTerm(baudrate=bdr, device=_port, rst=reset, clr=colors)
+                sys.exit(0)
+
+            # using default terminal emulator: miniterm
             control_signal = '0' if reset else '1'
             control_signal_b = not reset
             import serial.tools.miniterm
             # For using the terminal with MaixPy the 'filter' option must be set to 'direct'
             # because some control characters are emited
-            sys.argv = [sys.argv[0], _port, '115200', '--dtr='+control_signal, '--rts='+control_signal,  '--filter=direct']
-            serial.tools.miniterm.main(default_port=_port, default_baudrate=115200, default_dtr=control_signal_b, default_rts=control_signal_b)
+            sys.argv = [sys.argv[0], _port, str(bdr), '--dtr='+control_signal, '--rts='+control_signal,  '--filter=direct']
+            serial.tools.miniterm.main(default_port=_port, default_baudrate=bdr, default_dtr=control_signal_b, default_rts=control_signal_b)
             sys.exit(0)
 
         # ======================
@@ -1377,7 +1388,7 @@ class KTool:
             parser.add_argument("-b", "--baudrate", type=int, help="UART baudrate for uploading firmware", default=115200)
             parser.add_argument("-l", "--bootloader", help="Bootloader bin path", required=False, default=None)
             parser.add_argument("-k", "--key", help="AES key in hex, if you need to encrypt the firmware.", required=False, default=None)
-            parser.add_argument("-v", "--version", help="Print version and exit.", action='version', version='LoBo 1.0.1')
+            parser.add_argument("-v", "--version", help="Print version and exit.", action='version', version="'ktool' by LoBo ver. 1.0.2 (01/2020)")
             parser.add_argument("--verbose", help="Increase output verbosity", default=False, action="store_true")
             parser.add_argument("-t", "--terminal", help="Start a terminal after finish (Python miniterm)", default=False, action="store_true")
             parser.add_argument("-n", "--noansi", help="Do not use ANSI colors, recommended in Windows CMD", default=False, action="store_true")
@@ -1390,6 +1401,11 @@ class KTool:
             parser.add_argument("-E", "--erase", help="Erase the Falsh chip!", default=False, action="store_true")
             parser.add_argument("-R", "--read", help="Read data from Flash", default=False, action="store_true")
             parser.add_argument("-L", "--rdlen", type=auto_int, help="Length of data to read from Flash", default=0)
+            parser.add_argument("--termbdr", type=int, help="UART baudrate for terminal", default=115200)
+            parser.add_argument("--nosha", help="Flash without firmware prefix and SHA suffix", default=False, action="store_true")
+            parser.add_argument("--mpyterm", help="Select terminal emulator type", default=False, action="store_true")
+            parser.add_argument("-T", "--onlyterm", help="Only run terminal emulator", default=False, action="store_true")
+            parser.add_argument("--reset", help="Reset the board before running terminal emulator", default=False, action="store_true")
             parser.add_argument("firmware", nargs='?', help="firmware bin path, can be omited for read and erase commands", default="flash_dump.bin")
             args = parser.parse_args()
         else:
@@ -1409,6 +1425,11 @@ class KTool:
             setattr(args, "erase", False)
             setattr(args, "read", False)
             setattr(args, "rdlen", 0)
+            setattr(args, "nosha", False)
+            setattr(args, "termbdr", 115200)
+            setattr(args, "mpyterm", False)
+            setattr(args, "onlyterm", False)
+            setattr(args, "reset", False)
 
         # udpate args for none terminal call
         if not terminal:
@@ -1472,6 +1493,12 @@ class KTool:
         else:
             _port = args.port
             KTool.log(INFO_MSG,"COM Port Selected Manually: ", _port, BASH_TIPS['DEFAULT'])
+
+        # =======================================
+        # Only run terminal emulator if requested
+        # =======================================
+        if(args.onlyterm == True):
+            open_terminal(args.reset, args.termbdr, not args.noansi, mpyterm=args.mpyterm)
 
         # Initialize the K210 loader
         self.loader = MAIXLoader(port=_port, baudrate=115200)
@@ -1645,17 +1672,19 @@ class KTool:
                 sys.exit(1)
             elif file_format == ProgramFileFormat.FMT_ELF:
                 self.loader.load_elf_to_sram(firmware_bin)
-                KTool.log("==== Start terminal ====\n")
                 if(args.terminal == True):
-                    open_terminal(False)
+                    KTool.log("==== Start terminal ====\n")
+                    open_terminal(False, args.termbdr, not args.noansi, mpyterm=args.mpyterm)
             else:
                 self.loader.flash_firmware(firmware_bin.read(), tosram=True)
-                KTool.log("==== Start terminal ====\n")
                 if(args.terminal == True):
-                    open_terminal(False)
+                    KTool.log("==== Start terminal ====\n")
+                    open_terminal(False, args.termbdr, not args.noansi, mpyterm=args.mpyterm)
 
-            msg = "Load to SRAM OK"
-            raise_exception( Exception(msg) )
+            KTool.log(WARN_MSG, "Loaded to SRAM, but terminal emulator not started!")
+            KTool.log(INFO_MSG, "You need to start a new terminal emulator without")
+            KTool.log(INFO_MSG, "resetting the board to attach to the running firmware\n")
+            sys.exit(0)
 
         # ====================================
         # Initialize K210 SPI Flash operations
@@ -1718,14 +1747,18 @@ class KTool:
                     with open(os.path.join(tmpdir, lBinFiles["bin"]), "rb") as firmware_bin:
                         self.loader.flash_firmware(firmware_bin.read(), None, int(lBinFiles['address'], 0), lBinFiles['sha256Prefix'], filename=lBinFiles['bin'], swap=big_endian)
         else:
+            if args.nosha:
+                sha = False
+            else:
+                sha = True
             if args.key:
                 aes_key = binascii.a2b_hex(args.key)
                 if len(aes_key) != 16:
                     raise_exception( ValueError('AES key must by 16 bytes') )
 
-                self.loader.flash_firmware(firmware_bin.read(), address_offset=int(args.address), aes_key=aes_key)
+                self.loader.flash_firmware(firmware_bin.read(), address_offset=int(args.address), sha256Prefix=sha, aes_key=aes_key)
             else:
-                self.loader.flash_firmware(firmware_bin.read(), address_offset=int(args.address), swap=args.swapendian)
+                self.loader.flash_firmware(firmware_bin.read(), address_offset=int(args.address), sha256Prefix=sha, swap=args.swapendian)
 
         # ====================================================================
         # After firmware flash reset the board to execute the flashed firmware
@@ -1749,7 +1782,7 @@ class KTool:
             pass
 
         if(args.terminal == True):
-            open_terminal(True)
+            open_terminal(True, args.termbdr, not args.noansi, mpyterm=args.mpyterm)
 
     # ==== KTool.process ======================================
 
