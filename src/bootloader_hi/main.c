@@ -47,8 +47,8 @@
  * to select which application to load
  * Any valid and not used K210 gpio can be used except gpio#16 (0 ~ 15 & 17 ~ 47)
  */
-#define BOOT_PIN            18
-#define GPIO_KEY            2
+// #define BOOT_PIN            18
+// #define GPIO_KEY            2
 
 #define DEFAULT_APP_ADDR        0x00010000  // default application flash address (64K)
 #define APP_START_ADDR          0x80000000  // application start address in K210 SRAM
@@ -108,8 +108,8 @@ static uint8_t hash[SHA256_HASH_LEN] = {0};
 static uint8_t buffer[1024] = {0};
 static sha256_context_t context;
 
-static uint32_t boot_pin = 1;
-static int char_in = 0;
+// static uint32_t boot_pin = 1;
+// static int char_in = 0;
 static uint32_t print_enabled = 1;
 
 static uint32_t core0_sync = 0;
@@ -330,16 +330,16 @@ int main(void)
     // === Printing and Flash XiP mode were initialized in stage_0 ===
 
     // Check if interractive mode can be enabled
-    boot_pin = 1;
+    // boot_pin = 1;
     cfg_magic = cfg_flash_ptr[BOOT_CONFIG_ITEMS*8];
     print_enabled = (cfg_magic == MAGIC_ID) ? 0 : 1;
-    if (print_enabled) {
-        // Initialize and read boot pin status
-        fpioa_set_function(BOOT_PIN, FUNC_GPIOHS2);
-        gpiohs_set_drive_mode(GPIO_KEY, GPIO_DM_INPUT_PULL_UP);
-        usleep(1000);
-        boot_pin = gpiohs_get_pin(GPIO_KEY);
-    }
+    // if (print_enabled) {
+    //     // Initialize and read boot pin status
+    //     fpioa_set_function(BOOT_PIN, FUNC_GPIOHS2);
+    //     gpiohs_set_drive_mode(GPIO_KEY, GPIO_DM_INPUT_PULL_UP);
+    //     usleep(1000);
+    //     boot_pin = gpiohs_get_pin(GPIO_KEY);
+    // }
 
     LOG("\nK210 bootloader by LoBo v.1.4.1\n\n");
 
@@ -369,7 +369,7 @@ check_cfg:
                      * If in interractive mode, all applications are checked,
                      * otherwize, the application is checked only if flagged as active
                      */
-                    if ((cfg_magic & CFG_APP_FLAG_ACTIVE) || (boot_pin == 0)) {
+                    if (cfg_magic & CFG_APP_FLAG_ACTIVE) {
                         // ** Check if valid application
                         if (app_check() == 0) {
                             LOG("App CHECK failed\n");
@@ -390,13 +390,11 @@ check_cfg:
                             app_size = cfg_size;
                             app_flash_start = cfg_address;
                         }
-                        if (boot_pin > 0) {
-                            // Active application found and cheched and not in interractive mode
-                            LOG("ACTIVE\n");
-                            break;
-                        }
+                        // Active application found and checked
+                        LOG("ACTIVE\n");
+                        break;
                     }
-                    LOG("ACTIVE\n");
+                    // LOG("ACTIVE\n");
                 }
                 else {
                     LOG("size Error!\n");
@@ -428,45 +426,45 @@ check_cfg:
             LOG("\n* No app found, loading default\n");
         }
     }
-    else if (boot_pin == 0) {
-        // === Interractive mode ===
-        // Check boot pin again
-        boot_pin = gpiohs_get_pin(GPIO_KEY);
-        if (boot_pin == 0) {
-            // ** request user to select the application to run
-            LOG("\nSelect the application number to load [");
-            for (i = 0; i < BOOT_CONFIG_ITEMS; i++) {
-                if (available_apps[i]) {
-                    LOG(" %u,", i);
-                }
-            }
-            LOG(" d=default ] ? ");
-            while (1) {
-                char_in = rom_getchar();
-                if ((char_in == 'd') || (char_in == 'D')) {
-                    // use default application
-                    app_flash_start = DEFAULT_APP_ADDR;
-                    break;
-                }
-                else {
-                    char_in -= 0x30;
-                    if ((char_in >= 0) && (char_in < BOOT_CONFIG_ITEMS)) {
-                        if (available_apps[char_in]) {
-                            get_params(char_in);
-                            // get application's size and address in Flash
-                            app_size = flash2uint32(cfg_address+1);
-                            app_flash_start = cfg_address;
-                            char_in += 0x30;
-                            break;
-                        }
-                    }
-                    char_in += 0x30;
-                    LOG("%c? ", char_in);
-                }
-            }
-            LOG("%c\n\n", (char)char_in);
-        }
-    }
+    // else if (boot_pin == 0) {
+    //     // === Interractive mode ===
+    //     // Check boot pin again
+    //     boot_pin = gpiohs_get_pin(GPIO_KEY);
+    //     if (boot_pin == 0) {
+    //         // ** request user to select the application to run
+    //         LOG("\nSelect the application number to load [");
+    //         for (i = 0; i < BOOT_CONFIG_ITEMS; i++) {
+    //             if (available_apps[i]) {
+    //                 LOG(" %u,", i);
+    //             }
+    //         }
+    //         LOG(" d=default ] ? ");
+    //         while (1) {
+    //             char_in = rom_getchar();
+    //             if ((char_in == 'd') || (char_in == 'D')) {
+    //                 // use default application
+    //                 app_flash_start = DEFAULT_APP_ADDR;
+    //                 break;
+    //             }
+    //             else {
+    //                 char_in -= 0x30;
+    //                 if ((char_in >= 0) && (char_in < BOOT_CONFIG_ITEMS)) {
+    //                     if (available_apps[char_in]) {
+    //                         get_params(char_in);
+    //                         // get application's size and address in Flash
+    //                         app_size = flash2uint32(cfg_address+1);
+    //                         app_flash_start = cfg_address;
+    //                         char_in += 0x30;
+    //                         break;
+    //                     }
+    //                 }
+    //                 char_in += 0x30;
+    //                 LOG("%c? ", char_in);
+    //             }
+    //         }
+    //         LOG("%c\n\n", (char)char_in);
+    //     }
+    // }
 
     // If default application is selected for load, get its size and check SHA hash
     if (app_flash_start == DEFAULT_APP_ADDR) {
